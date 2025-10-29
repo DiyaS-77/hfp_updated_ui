@@ -1,0 +1,117 @@
+🧠 Design Goal
+
+Keep BluetoothDeviceManager a pure backend service — no Qt imports, no UI dependencies.
+
+Instead, it should:
+
+Use Python callbacks, signals, or pub/sub hooks to notify the UI layer.
+
+Handle only Bluetooth logic, D-Bus, and ofono integration.
+
+Remain fully reusable outside PyQt (e.g., for CLI tools or headless scripts).
+
+✅ Recommended Adjustments (Backend-Only Approach)
+1. Add Lightweight Event Hooks Instead of PyQt Signals
+
+You can add simple Python callbacks for events — flexible and UI-agnostic.
+
+class BluetoothDeviceManager:
+    """Backend-only: Manages Bluetooth devices via BlueZ + oFono D-Bus APIs."""
+
+    def __init__(self, log=None, interface=None):
+        ...
+        self.active_call_path = None
+
+        # --- Optional event callbacks for external layers (e.g. UI) ---
+        self.on_call_state_changed = None   # callable(state: str)
+        self.on_incoming_call = None        # callable(number: str)
+        self.on_features_updated = None     # callable(features: list[str])
+        self.on_volume_changed = None       # callable(volume: int)
+
+
+def _emit(self, callback, *args):
+    """Internal helper to safely call optional callbacks."""
+    if callable(callback):
+        try:
+            callback(*args)
+        except Exception as e:
+            if self.log:
+                self.log.error(f"Callback {callback.__name__} failed: {e}")
+
+
+def on_call_added(self, call_path, properties):
+    self.active_call_path = call_path
+    number = properties.get("LineIdentification", "Unknown")
+    state = properties.get("State", "unknown")
+    self.log.info(f"New call: {call_path}, Number={number}, State={state}")
+
+    if state == "incoming":
+        self._emit(self.on_incoming_call, number)
+        self._emit(self.on_call_state_changed, "Ringing")
+    elif state == "active":
+        self._emit(self.on_call_state_changed, "Active")
+
+def on_call_removed(self, call_path):
+    if self.active_call_path == call_path:
+        self.log.info(f"Call ended: {call_path}")
+        self.active_call_path = None
+        self._emit(self.on_call_state_changed, "Idle")
+
+
+def on_call_added(self, call_path, properties):
+    self.active_call_path = call_path
+    number = properties.get("LineIdentification", "Unknown")
+    state = properties.get("State", "unknown")
+    self.log.info(f"New call: {call_path}, Number={number}, State={state}")
+
+    if state == "incoming":
+        self._emit(self.on_incoming_call, number)
+        self._emit(self.on_call_state_changed, "Ringing")
+    elif state == "active":
+        self._emit(self.on_call_state_changed, "Active")
+
+def on_call_removed(self, call_path):
+    if self.active_call_path == call_path:
+        self.log.info(f"Call ended: {call_path}")
+        self.active_call_path = None
+        self._emit(self.on_call_state_changed, "Idle")
+
+
+def set_call_volume(self, device_address, volume):
+    path = self.get_ofono_modem_path(device_address)
+    if not path:
+        self.log.warning(f"No ofono path for {device_address}")
+        return False
+    try:
+        call_volume = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.CallVolume")
+        call_volume.SetVolume(volume)
+        self._emit(self.on_volume_changed, volume)
+        return True
+    except Exception as error:
+        self.log.error(f"Failed to set volume on {device_address}: {error}")
+        return False
+
+
+def query_supported_features(self, device_address):
+    """Return list of available advanced call features."""
+    path = self.get_ofono_modem_path(device_address)
+    if not path:
+        return []
+    try:
+        manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
+        props = manager.GetProperties()
+        features = []
+        if props.get("CanHoldCall", False): features.append("Hold")
+        if props.get("CanSwapCalls", False): features.append("Swap")
+        if props.get("CanConferenceCalls", False): features.append("Conference")
+        self._emit(self.on_features_updated, features)
+        return features
+    except Exception as e:
+        self.log.error(f"Failed to query features: {e}")
+        return []
+
+
+self.bluetooth_device_manager.on_call_state_changed = self.update_call_state_ui
+self.bluetooth_device_manager.on_incoming_call = self.show_incoming_number
+self.bluetooth_device_manager.on_features_updated = self.update_advanced_ui_visibility
+self.bluetooth_device_manager.on_volume_changed = self.update_volume_ui
