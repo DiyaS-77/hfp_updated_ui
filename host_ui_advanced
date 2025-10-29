@@ -1,0 +1,104 @@
+def create_hfp_profile_ui(self, device_address):
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.setContentsMargins(15, 15, 15, 15)
+    widget.setStyleSheet("background-color: #E6F2FA; font-family: 'Segoe UI'; font-size: 10pt;")
+
+    # --- Phone number input ---
+    self.phone_number_input = QLineEdit(widget)
+    self.phone_number_input.setPlaceholderText("Enter phone number")
+
+    # --- Basic call control buttons ---
+    self.dial_button = QPushButton("Dial", widget)
+    self.answer_call_button = QPushButton("Answer", widget)
+    self.hangup_button = QPushButton("Hang Up", widget)
+    self.redial_button = QPushButton("Redial", widget)
+
+    for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+        b.setFixedHeight(30)
+
+    basic_layout = QVBoxLayout()
+    basic_layout.addWidget(self.phone_number_input)
+    for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+        basic_layout.addWidget(b)
+    basic_group = self.create_hfp_sections("Basic Call Controls", basic_layout, parent=widget)
+
+    # --- Advanced call handling buttons ---
+    adv_layout = QVBoxLayout()
+    self.swap_calls_btn = QPushButton("Swap Calls", widget)
+    self.hold_answer_btn = QPushButton("Hold + Answer", widget)
+    self.release_answer_btn = QPushButton("Release + Answer", widget)
+    self.private_chat_btn = QPushButton("Private Chat", widget)
+    self.create_multiparty_btn = QPushButton("Create Multiparty", widget)
+    self.hangup_multiparty_btn = QPushButton("Hangup Multiparty", widget)
+    self.transfer_calls_btn = QPushButton("Transfer Calls", widget)
+    self.dial_memory_btn = QPushButton("Dial Memory", widget)
+
+    for b in [self.swap_calls_btn, self.hold_answer_btn, self.release_answer_btn,
+              self.private_chat_btn, self.create_multiparty_btn, self.hangup_multiparty_btn,
+              self.transfer_calls_btn, self.dial_memory_btn]:
+        adv_layout.addWidget(b)
+    adv_group = self.create_hfp_sections("Advanced Call Handling", adv_layout, parent=widget)
+
+    # --- Audio settings ---
+    audio_layout = QHBoxLayout()
+    self.volume_slider = QSlider(Qt.Orientation.Horizontal, widget)
+    self.volume_slider.setRange(0, 100)
+    audio_layout.addWidget(QLabel("Volume:", widget))
+    audio_layout.addWidget(self.volume_slider)
+    audio_group = self.create_hfp_sections("Audio Settings", audio_layout, parent=widget)
+
+    # --- DTMF controls ---
+    dtmf_layout = QHBoxLayout()
+    self.dtmf_input = QLineEdit(widget)
+    self.dtmf_input.setPlaceholderText("Enter DTMF tone (0–9, #, *)")
+    self.dtmf_send_btn = QPushButton("Send", widget)
+    dtmf_layout.addWidget(self.dtmf_input)
+    dtmf_layout.addWidget(self.dtmf_send_btn)
+    dtmf_group = self.create_hfp_sections("DTMF Controls", dtmf_layout, parent=widget)
+
+    # --- Add groups to main layout ---
+    for group in [basic_group, adv_group, audio_group, dtmf_group]:
+        layout.addWidget(group)
+
+    # --- Setup HFP backend manager ---
+    self.bluetooth_device_manager.setup_hfp_manager(device_address)
+
+    # --- Connect basic buttons ---
+    self.dial_button.clicked.connect(
+        lambda: self.bluetooth_device_manager.dial_number(device_address, self.phone_number_input.text()))
+    self.answer_call_button.clicked.connect(
+        lambda: self.bluetooth_device_manager.answer_call(device_address))
+    self.hangup_button.clicked.connect(
+        lambda: self.bluetooth_device_manager.hangup_active_call())
+    self.redial_button.clicked.connect(
+        lambda: self.bluetooth_device_manager.dial_last(device_address))
+
+    # --- Connect advanced buttons ---
+    self.swap_calls_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.release_and_swap(device_address))
+    self.hold_answer_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.hold_and_answer(device_address))
+    self.release_answer_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.release_and_answer(device_address))
+    self.private_chat_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.private_chat(
+            device_address, self.bluetooth_device_manager.active_call_path))
+    self.create_multiparty_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.create_multiparty(device_address))
+    self.hangup_multiparty_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.hangup_multiparty(device_address))
+    self.transfer_calls_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.transfer_calls(device_address))
+    self.dial_memory_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.dial_memory(device_address, memory_position=1))  # You can make memory_position selectable
+
+    # --- Volume slider ---
+    self.volume_slider.valueChanged.connect(
+        lambda v: self.bluetooth_device_manager.set_call_volume(device_address, v))
+
+    # --- DTMF send button ---
+    self.dtmf_send_btn.clicked.connect(
+        lambda: self.bluetooth_device_manager.send_tones(device_address, self.dtmf_input.text()))
+
+    return widget
