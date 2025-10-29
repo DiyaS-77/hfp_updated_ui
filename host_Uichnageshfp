@@ -1,0 +1,189 @@
+def create_hfp_profile_ui(self, device_address):
+    # Main container
+    layout = QVBoxLayout()
+    layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+    layout.setContentsMargins(20, 10, 20, 10)
+    layout.setSpacing(15)
+
+    # Individual sections
+    basic_group = self.create_hfp_sections("Basic Call Controls", self.create_basic_controls_ui(device_address))
+    adv_group = self.create_hfp_sections("Advanced Call Handling", self.create_advanced_controls_ui(device_address))
+    audio_group = self.create_hfp_sections("Audio Settings", self.create_audio_settings_ui(device_address))
+    dtmf_group = self.create_hfp_sections("DTMF Controls", self.create_dtmf_controls_ui(device_address))
+
+    for g in [basic_group, adv_group, audio_group, dtmf_group]:
+        layout.addWidget(g)
+
+    # Status label (shows Idle, Ringing, Active)
+    self.call_state_label = QLabel("Call State: Idle")
+    self.call_state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    self.call_state_label.setStyleSheet("color: gray; font-weight: bold;")
+    layout.addWidget(self.call_state_label)
+
+    widget = QWidget()
+    widget.setLayout(layout)
+    widget.setStyleSheet("background-color: #f9f9f9;")
+    return widget
+
+
+      def create_basic_controls_ui(self, device_address):
+    layout = QVBoxLayout()
+
+    self.phone_number_input = QLineEdit()
+    self.phone_number_input.setPlaceholderText("Enter phone number")
+
+    self.dial_button = QPushButton("Dial")
+    self.answer_call_button = QPushButton("Answer")
+    self.hangup_button = QPushButton("Hang Up")
+    self.redial_button = QPushButton("Redial")
+
+    for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+        b.setFixedHeight(28)
+        layout.addWidget(b)
+
+    layout.insertWidget(0, self.phone_number_input)
+
+    # Dynamic state control
+    self.answer_call_button.setEnabled(False)
+    self.hangup_button.setEnabled(False)
+
+    # Example: dynamically update state
+    self.bluetooth_device_manager.call_state_changed.connect(self.update_call_state_ui)
+
+    # Button signals
+    self.dial_button.clicked.connect(lambda: self.bluetooth_device_manager.dial_number(device_address, self.phone_number_input.text()))
+    self.answer_call_button.clicked.connect(lambda: self.bluetooth_device_manager.answer_call(device_address))
+    self.hangup_button.clicked.connect(lambda: self.bluetooth_device_manager.hangup_active_call())
+    self.redial_button.clicked.connect(lambda: self.bluetooth_device_manager.dial_last(device_address))
+
+    return layout
+
+
+      def create_audio_settings_ui(self, device_address):
+    layout = QVBoxLayout()
+
+    # Speaker
+    speaker_layout = QHBoxLayout()
+    speaker_layout.addWidget(QLabel("Speaker Volume:"))
+    self.speaker_slider = QSlider(Qt.Orientation.Horizontal)
+    self.speaker_slider.setRange(0, 100)
+    speaker_layout.addWidget(self.speaker_slider)
+    layout.addLayout(speaker_layout)
+
+    # Mic
+    mic_layout = QHBoxLayout()
+    mic_layout.addWidget(QLabel("Mic Volume:"))
+    self.mic_slider = QSlider(Qt.Orientation.Horizontal)
+    self.mic_slider.setRange(0, 100)
+    mic_layout.addWidget(self.mic_slider)
+    layout.addLayout(mic_layout)
+
+    # Mute toggle
+    self.mute_button = QPushButton("Mute")
+    self.mute_button.setCheckable(True)
+    self.mute_button.toggled.connect(
+        lambda checked: self.bluetooth_device_manager.set_mute(device_address, checked)
+    )
+    layout.addWidget(self.mute_button, alignment=Qt.AlignmentFlag.AlignRight)
+
+    return layout
+
+
+      def create_dtmf_controls_ui(self, device_address):
+    layout = QGridLayout()
+    buttons = [
+        "1", "2", "3",
+        "4", "5", "6",
+        "7", "8", "9",
+        "*", "0", "#"
+    ]
+    for i, text in enumerate(buttons):
+        btn = QPushButton(text)
+        btn.setFixedSize(40, 40)
+        btn.clicked.connect(lambda _, t=text: self.bluetooth_device_manager.send_dtmf(device_address, t))
+        layout.addWidget(btn, i // 3, i % 3)
+    return layout
+
+
+      def create_advanced_controls_ui(self, device_address):
+    layout = QHBoxLayout()
+    self.hold_button = QPushButton("Hold")
+    self.swap_button = QPushButton("Swap")
+    self.conf_button = QPushButton("Conference")
+
+    for b in [self.hold_button, self.swap_button, self.conf_button]:
+        b.setVisible(False)  # Appear dynamically
+        layout.addWidget(b)
+
+    # Example: show available features
+    self.bluetooth_device_manager.features_updated.connect(
+        lambda feats: self.update_advanced_ui_visibility(feats)
+    )
+
+    return layout
+
+
+      from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+
+def create_hfp_sections(self, title, inner_layout):
+    group = QGroupBox(title)
+    group.setLayout(inner_layout)
+    group.setStyleSheet("""
+        QGroupBox {
+            border: 1px solid #0078D7;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 3px 10px;
+            color: #0078D7;
+            font-weight: bold;
+        }
+    """)
+
+    content = QWidget()
+    content.setLayout(inner_layout)
+    content.setMaximumHeight(0)
+    content.setVisible(False)
+
+    toggle = QToolButton(text=title, checkable=True)
+    toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    toggle.setArrowType(Qt.ArrowType.RightArrow)
+
+    anim = QPropertyAnimation(content, b"maximumHeight")
+    anim.setDuration(250)
+    anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+    def toggle_animation(checked):
+        content.setVisible(True)
+        if checked:
+            anim.setStartValue(0)
+            anim.setEndValue(content.sizeHint().height())
+            toggle.setArrowType(Qt.ArrowType.DownArrow)
+        else:
+            anim.setStartValue(content.height())
+            anim.setEndValue(0)
+            toggle.setArrowType(Qt.ArrowType.RightArrow)
+        anim.start()
+
+    toggle.toggled.connect(toggle_animation)
+
+    vbox = QVBoxLayout(group)
+    vbox.addWidget(toggle)
+    vbox.addWidget(content)
+    return group
+
+      def update_call_state_ui(self, state):
+    color_map = {
+        "Idle": "gray",
+        "Ringing": "#E69500",
+        "Active": "#0078D7"
+    }
+    self.call_state_label.setText(f"Call State: {state}")
+    self.call_state_label.setStyleSheet(f"color: {color_map.get(state, 'black')}; font-weight: bold;")
+
+    # Enable/disable buttons
+    self.answer_call_button.setEnabled(state == "Ringing")
+    self.hangup_button.setEnabled(state == "Active")
