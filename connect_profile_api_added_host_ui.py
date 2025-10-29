@@ -1,13 +1,13 @@
 import os
 import re
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, QParallelAnimationGroup, QEasingCurve, QPropertyAnimation
 from PyQt6.QtCore import Qt
 from PyQt6.QtCore import QFileSystemWatcher
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QCheckBox, QInputDialog, QToolButton
+from PyQt6.QtWidgets import QCheckBox, QInputDialog, QToolButton, QGraphicsDropShadowEffect
 from PyQt6.QtWidgets import QComboBox
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtWidgets import QDialogButtonBox
@@ -80,6 +80,9 @@ class TestApplication(QWidget):
         self.profiles_list_widget = None
         self.profile_description_text_browser = None
         self.refresh_button = None
+        self.hfp_sections = []
+        self.current_expanded_section = None
+
         self.selected_profiles = {}
         self.device_tabs_map = {}
         self.device_states = {}
@@ -931,17 +934,17 @@ class TestApplication(QWidget):
             a2dp_role_group.setVisible(False)
             layout.addWidget(a2dp_role_group)
             a2dp_checkbox.stateChanged.connect(lambda: a2dp_role_group.setVisible(a2dp_checkbox.isChecked()))
-            hfp_role_group = QGroupBox("Select HFP Role")
-            hfp_role_layout = QHBoxLayout()
-            ag_radio = QRadioButton("Audio Gateway (AG)")
-            hf_radio = QRadioButton("Hands-Free (HF)")
-            ag_radio.setChecked(True)
-            hfp_role_layout.addWidget(ag_radio)
-            hfp_role_layout.addWidget(hf_radio)
-            hfp_role_group.setLayout(hfp_role_layout)
-            hfp_role_group.setVisible(False)
-            layout.addWidget(hfp_role_group)
-            hfp_checkbox.stateChanged.connect(lambda: hfp_role_group.setVisible(hfp_checkbox.isChecked()))
+            #hfp_role_group = QGroupBox("Select HFP Role")
+            #hfp_role_layout = QHBoxLayout()
+            #ag_radio = QRadioButton("Audio Gateway (AG)")
+            #hf_radio = QRadioButton("Hands-Free (HF)")
+            #ag_radio.setChecked(True)
+            #hfp_role_layout.addWidget(ag_radio)
+            #hfp_role_layout.addWidget(hf_radio)
+            #hfp_role_group.setLayout(hfp_role_layout)
+            #hfp_role_group.setVisible(False)
+            #layout.addWidget(hfp_role_group)
+            #hfp_checkbox.stateChanged.connect(lambda: hfp_role_group.setVisible(hfp_checkbox.isChecked()))
             buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
             layout.addWidget(buttons)
             buttons.accepted.connect(dialog.accept)
@@ -955,7 +958,8 @@ class TestApplication(QWidget):
                 if opp_checkbox.isChecked():
                     self.selected_profiles['opp'] = True
                 if hfp_checkbox.isChecked():
-                    self.selected_profiles['hfp'] = 'ag' if ag_radio.isChecked() else 'hf'
+                    #self.selected_profiles['hfp'] = 'ag' if ag_radio.isChecked() else 'hf'
+                    self.selected_profiles['hfp'] = True
                 if not self.selected_profiles:
                     QMessageBox.warning(self, "No Profile Selected", "Please select at least one profile to connect.")
                     return
@@ -983,8 +987,7 @@ class TestApplication(QWidget):
                                 else:
                                     failed_profiles.append("OPP")
                                     all_success = False
-                            if (constants.profile_uuids["HFP AG"] in connected_uuids or
-                                    constants.profile_uuids["HFP HF"] in connected_uuids):
+                            if constants.profile_uuids["HFP AG"] in connected_uuids:
                                 self.device_profiles[device_address].append("HFP")
                             else:
                                 failed_profiles.append("HFP")
@@ -1010,10 +1013,7 @@ class TestApplication(QWidget):
                             failed_profiles.append("OPP")
                             all_success = False
                     elif profile == "hfp":
-                        if role == 'ag':
-                            uuid = constants.profile_uuids["HFP AG"]
-                        else:
-                            uuid = constants.profile_uuids["HFP HF"]
+                        uuid = constants.profile_uuids["HFP AG"]
                         success = self.bluetooth_device_manager.connect_profile(device_address, profile_uuid=uuid)
                         if success:
                             self.device_profiles[device_address].append("HFP")
@@ -1043,6 +1043,7 @@ class TestApplication(QWidget):
             session_path = state.get("session_path")
             opp_connected = "OPP" in self.device_profiles.get(device_address, [])
             a2dp_connected = "A2DP" in self.device_profiles.get(device_address, [])
+            hfp_connected = "HFP" in self.device_address.get(device_address, [])
             bluetooth_connected = self.bluetooth_device_manager.is_device_connected(device_address)
             bt_success = True
 
@@ -1054,6 +1055,8 @@ class TestApplication(QWidget):
             if a2dp_connected or bluetooth_connected:
                 bt_success = self.bluetooth_device_manager.disconnect(device_address)
 
+            if hfp_connected or bluetooth_connected:
+                bt_success = self.bluetooth_device_manager.disconnect(device_address)
             if bt_success:
                 QMessageBox.information(self, "Disconnection Successful", f"{device_address} was disconnected.")
                 self.log.info("Disconnected from %s", device_address)
@@ -1066,11 +1069,9 @@ class TestApplication(QWidget):
             self.clear_profile_ui()
             self.load_device_profile_tabs(device_address, [])
             self.selected_profiles = {}
-
         elif action == 'unpair':
             success = self.bluetooth_device_manager.unpair_device(device_address)
             if success:
-                QMessageBox.information(self, "Unpair Successful", f"{device_address} was unpaired.")
                 self.log.info("Unpaired %s", device_address)
             else:
                 QMessageBox.warning(self, "Unpair Failed", f"Could not unpair {device_address}")
@@ -1078,7 +1079,7 @@ class TestApplication(QWidget):
             self.clear_profile_ui()
             self.remove_device_from_list(device_address)
             if self.profiles_list_widget.count() == 1:
-                self.profiles_list_widget.itemSelectionChanged.connect(self.profile_selected)
+                self.profiles_list_widget.itemSelectionChanged.connect(self.handle_profile_selection)
             else:
                 self.load_device_profile_tabs(device_address, [])
         else:
@@ -1757,7 +1758,7 @@ class TestApplication(QWidget):
         widget.setStyleSheet(styles.device_tab_widget_style_sheet)
         return widget'''
 
-    def create_hfp_profile_ui(self, device_address):
+    '''def create_hfp_profile_ui(self, device_address):
         layout = QVBoxLayout()
         layout.setContentsMargins(15, 15, 15, 15)
         basic_layout = QVBoxLayout()
@@ -1767,16 +1768,17 @@ class TestApplication(QWidget):
         self.answer_call_button = QPushButton("Answer")
         self.hangup_button = QPushButton("Hang Up")
         self.redial_button = QPushButton("Redial")
+        #self.get_calls_button = QPushButton("Get Calls")
         for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
             b.setFixedHeight(15)
         basic_layout.addWidget(self.phone_number_input)
         for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
             basic_layout.addWidget(b)
         basic_group = self.create_hfp_sections("Basic Call Controls", basic_layout)
-        adv_layout = QVBoxLayout()
-        for text in ["Swap Calls", "Hold + Answer", "Release + Answer", "Private Chat"]:
-            adv_layout.addWidget(QPushButton(text))
-        adv_group = self.create_hfp_sections("Advanced Call Handling", adv_layout)
+        advanced_layout = QVBoxLayout()
+        for text in ["Get Calls", "Swap Calls", "Hold + Answer", "Release + Answer", "Private Chat"]:
+            advanced_layout.addWidget(QPushButton(text))
+        adv_group = self.create_hfp_sections("Advanced Call Handling", advanced_layout)
         audio_layout = QHBoxLayout()
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
@@ -1823,5 +1825,261 @@ class TestApplication(QWidget):
         )
         layout.addWidget(toggle)
         layout.addWidget(content)
-        return group
+        return group'''
+
+    def create_hfp_profile_ui(self, device_address):
+        widget = QWidget()
+        widget.setStyleSheet(styles.widget_style_sheet)
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(15, 15, 15, 15)
+
+        self.phone_number_input = QLineEdit(widget)
+        self.phone_number_input.setPlaceholderText("Enter phone number")
+
+        self.dial_button = QPushButton("Dial", widget)
+        self.answer_call_button = QPushButton("Answer", widget)
+        self.hangup_button = QPushButton("Hang Up", widget)
+        self.redial_button = QPushButton("Redial", widget)
+
+        for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+            b.setFixedHeight(20)
+
+        basic_layout = QVBoxLayout()
+        basic_layout.addWidget(self.phone_number_input)
+        for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+            basic_layout.addWidget(b)
+        basic_group = self.create_hfp_sections("Basic Call Controls", basic_layout, parent=widget)
+
+        adv_layout = QVBoxLayout()
+        self.swap_calls_btn = QPushButton("Swap Calls", widget)
+        self.hold_answer_btn = QPushButton("Hold + Answer", widget)
+        self.release_answer_btn = QPushButton("Release + Answer", widget)
+        self.private_chat_btn = QPushButton("Private Chat", widget)
+        self.create_multiparty_btn = QPushButton("Create Multiparty", widget)
+        self.hangup_multiparty_btn = QPushButton("Hangup Multiparty", widget)
+        self.transfer_calls_btn = QPushButton("Transfer Calls", widget)
+        self.dial_memory_btn = QPushButton("Dial Memory", widget)
+
+        for b in [self.swap_calls_btn, self.hold_answer_btn, self.release_answer_btn,
+                  self.private_chat_btn, self.create_multiparty_btn, self.hangup_multiparty_btn,
+                  self.transfer_calls_btn, self.dial_memory_btn]:
+            adv_layout.addWidget(b)
+        adv_group = self.create_hfp_sections("Advanced Call Handling", adv_layout, parent=widget)
+
+        audio_layout = QHBoxLayout()
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal, widget)
+        self.volume_slider.setRange(0, 100)
+        audio_layout.addWidget(QLabel("Volume:", widget))
+        audio_layout.addWidget(self.volume_slider)
+        audio_group = self.create_hfp_sections("Audio Settings", audio_layout, parent=widget)
+
+        dtmf_layout = QHBoxLayout()
+        self.dtmf_input = QLineEdit(widget)
+        self.dtmf_input.setPlaceholderText("Enter DTMF tone (0–9, #, *)")
+        self.dtmf_send_btn = QPushButton("Send", widget)
+        dtmf_layout.addWidget(self.dtmf_input)
+        dtmf_layout.addWidget(self.dtmf_send_btn)
+        dtmf_group = self.create_hfp_sections("DTMF Controls", dtmf_layout, parent=widget)
+
+        for group in [basic_group, adv_group, audio_group, dtmf_group]:
+            layout.addWidget(group)
+
+        self.bluetooth_device_manager.setup_hfp_manager(device_address)
+
+        self.dial_button.clicked.connect(
+            lambda: self.bluetooth_device_manager.dial_number(device_address, self.phone_number_input.text()))
+        self.answer_call_button.clicked.connect(
+            lambda: self.bluetooth_device_manager.answer_call(device_address))
+        self.hangup_button.clicked.connect(
+            lambda: self.bluetooth_device_manager.hangup_active_call())
+        self.redial_button.clicked.connect(
+            lambda: self.bluetooth_device_manager.dial_last(device_address))
+        self.swap_calls_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.release_and_swap(device_address))
+        self.hold_answer_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.hold_and_answer(device_address))
+        self.release_answer_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.release_and_answer(device_address))
+        self.private_chat_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.private_chat(
+                device_address, self.bluetooth_device_manager.active_call_path))
+        self.create_multiparty_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.create_multiparty(device_address))
+        self.hangup_multiparty_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.hangup_multiparty(device_address))
+        self.transfer_calls_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.transfer_calls(device_address))
+        self.dial_memory_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.dial_memory(device_address,
+                                                              memory_position=1))
+
+        self.volume_slider.valueChanged.connect(
+            lambda v: self.bluetooth_device_manager.set_call_volume(device_address, v))
+
+        self.dtmf_send_btn.clicked.connect(
+            lambda: self.bluetooth_device_manager.send_tones(device_address, self.dtmf_input.text()))
+
+        return widget
+
+    '''def create_hfp_sections(self, title, inner_layout, parent=None):
+        """Create collapsible HFP section with smooth expand/collapse + fade animation and light blue theme."""
+        container = QWidget(parent)
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(2)
+
+        toggle = QToolButton(container)
+        toggle.setText(title)
+        toggle.setCheckable(True)
+        toggle.setChecked(False)
+        toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        toggle.setArrowType(Qt.ArrowType.RightArrow)
+        toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        toggle.setStyleSheet(styles.hfptoggle_stylesheet)
+        content = QGroupBox(container)
+        content.setLayout(inner_layout)
+        content.setMaximumHeight(0)
+        content.setWindowOpacity(0.0)
+        content.setVisible(False)
+        content.setStyleSheet(styles.content_stylesheet)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 2)
+        content.setGraphicsEffect(shadow)
+
+        height_anim = QPropertyAnimation(content, b"maximumHeight")
+        height_anim.setDuration(250)
+        height_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+        fade_anim = QPropertyAnimation(content, b"windowOpacity")
+        fade_anim.setDuration(250)
+        fade_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+        animation_group = QParallelAnimationGroup()
+        animation_group.addAnimation(height_anim)
+        animation_group.addAnimation(fade_anim)
+        self.hfp_sections.append(toggle)
+
+        def toggle_section(checked):
+            content.setVisible(True)
+            if checked:
+                height_anim.setStartValue(0)
+                height_anim.setEndValue(content.sizeHint().height())
+                fade_anim.setStartValue(0.0)
+                fade_anim.setEndValue(1.0)
+                toggle.setArrowType(Qt.ArrowType.DownArrow)
+            else:
+                height_anim.setStartValue(content.height())
+                height_anim.setEndValue(0)
+                fade_anim.setStartValue(1.0)
+                fade_anim.setEndValue(0.0)
+                toggle.setArrowType(Qt.ArrowType.RightArrow)
+
+                def hide_after():
+                    content.setVisible(False)
+                    animation_group.finished.disconnect(hide_after)
+
+                animation_group.finished.connect(hide_after)
+
+            animation_group.start()
+
+        toggle.toggled.connect(toggle_section)
+
+        container_layout.addWidget(toggle)
+        container_layout.addWidget(content)
+        return container'''
+
+    def create_hfp_sections(self, title, inner_layout, parent=None):
+        """Create collapsible HFP section with smooth expand/collapse + fade animation and light blue theme."""
+        container = QWidget(parent)
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(2)
+
+        toggle = QToolButton(container)
+        toggle.setText(title)
+        toggle.setCheckable(True)
+        toggle.setChecked(False)
+        toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        toggle.setArrowType(Qt.ArrowType.RightArrow)
+        toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        toggle.setStyleSheet(styles.hfptoggle_stylesheet)
+        content = QGroupBox(container)
+        content.setLayout(inner_layout)
+        content.setMaximumHeight(0)
+        content.setWindowOpacity(0.0)
+        content.setVisible(False)
+        content.setStyleSheet(styles.content_stylesheet)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 2)
+        content.setGraphicsEffect(shadow)
+
+        height_anim = QPropertyAnimation(content, b"maximumHeight")
+        height_anim.setDuration(250)
+        height_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+        fade_anim = QPropertyAnimation(content, b"windowOpacity")
+        fade_anim.setDuration(250)
+        fade_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+        animation_group = QParallelAnimationGroup()
+        animation_group.addAnimation(height_anim)
+        animation_group.addAnimation(fade_anim)
+        self.hfp_sections.append(toggle)
+
+        def toggle_section(checked):
+            if self.current_expanded_section and self.current_expanded_section != content:
+                prev_content = self.current_expanded_section
+                prev_height_anim = QPropertyAnimation(prev_content, b"maximumHeight")
+                prev_fade_anim = QPropertyAnimation(prev_content, b"windowOpacity")
+                prev_height_anim.setDuration(250)
+                prev_fade_anim.setDuration(250)
+                prev_height_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+                prev_fade_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+                prev_height_anim.setStartValue(prev_content.height())
+                prev_height_anim.setEndValue(0)
+                prev_fade_anim.setStartValue(1.0)
+                prev_fade_anim.setEndValue(0.0)
+
+                def hide_after():
+                    prev_content.setVisible(True)
+                    animation_group.finished.disconnect(hide_after)
+
+                #animation_group.finished.connect(hide_after)
+                animation_group.start()
+
+            if checked:
+                content.setVisible(True)
+                height_anim.setStartValue(0)
+                height_anim.setEndValue(content.sizeHint().height())
+                fade_anim.setStartValue(0.0)
+                fade_anim.setEndValue(1.0)
+                toggle.setArrowType(Qt.ArrowType.DownArrow)
+                animation_group.start()
+                self.current_expanded_section = content
+            else:
+                height_anim.setStartValue(content.height())
+                height_anim.setEndValue(0)
+                fade_anim.setStartValue(1.0)
+                fade_anim.setEndValue(0.0)
+                toggle.setArrowType(Qt.ArrowType.RightArrow)
+
+                def hide_after():
+                    content.setVisible(False)
+                    animation_group.finished.disconnect(hide_after)
+
+                animation_group.finished.connect(hide_after)
+                animation_group.start()
+
+                self.current_expanded_section = None
+
+        toggle.toggled.connect(toggle_section)
+
+        container_layout.addWidget(toggle)
+        container_layout.addWidget(content)
+        return container
 

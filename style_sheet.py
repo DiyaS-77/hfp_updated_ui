@@ -290,8 +290,11 @@ widget_style_sheet ="""QGroupBox {
                             margin-top: 8px;
                         }
                         QPushButton {
-                            background-color: #6ea8fe;
-                            color: white;
+                                    background-color: QLinearGradient(
+                                    spread:reflect, x1:0, y1:0, x2:1, y2:0,
+                                    stop:0 #e0f7fa, stop:1 #b2ebf2
+                                    );                            
+                            color: blue;
                             border-radius: 4px;
                         }
                         QPushButton:hover {
@@ -333,3 +336,36 @@ volume_slider_style_sheet = """QSlider::groove:horizontal {
                                     background: #4caf50;
                                     border: 1px solid #2e7d32;
                                     }"""
+
+hfptoggle_stylesheet = """QToolButton {
+                            font-weight: bold;
+                            color: #00509E;
+                            background-color: #DCEAFB;
+                            border: 1px solid #A8CCE8;
+                            border-radius: 6px;
+                            padding: 6px 10px;
+                            text-align: left;
+                        }
+                        QToolButton:hover {
+                            background-color: #C6E0FA;
+                        }
+                        QToolButton:checked {
+                            background-color: #B0D6F9;
+                        }
+                    """
+
+
+content_stylesheet = """QGroupBox {
+                            border: 1px solid #00509E;
+                            border-radius: 6px;
+                            margin-top: 5px;
+                            background-color: qlineargradient(x1: 0, y1: 0, y2: 1, stop: 0 #E6F2FA, stop: 1 #D8E9F6);
+                        }
+                        QGroupBox::title {
+                            subcontrol-origin: margin;
+                            subcontrol-position: top center;
+                            padding: 3px 10px;
+                            color: #00509E;
+                            font-weight: bold;
+                        }
+                    """

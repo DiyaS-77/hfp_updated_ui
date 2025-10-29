@@ -747,8 +747,7 @@ class BluetoothDeviceManager:
             self.log.warning("No oFono modem path for %s", device_address)
             return False
         try:
-            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
-            voice_call_manager.HangupAll()
+            self.voice_call_manager.HangupAll()
             return True
         except Exception as error:
             self.log.error("Failed to hangup call on %s: %s", device_address, error)
@@ -767,8 +766,7 @@ class BluetoothDeviceManager:
             self.log.warning("No oFono modem path for %s", device_address)
             return False
         try:
-            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path),"org.ofono.VoiceCallManager")
-            call_path = voice_call_manager.Dial(number, hide_callerid)
+            call_path = self.voice_call_manager.Dial(number, hide_callerid)
             self.log.info("Dialed number %s on %s, call path: %s", number, device_address, call_path)
             return call_path
         except Exception as error:
@@ -786,9 +784,8 @@ class BluetoothDeviceManager:
             self.log.warning("No oFono modem path for %s", device_address)
             return False
         try:
-            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path),"org.ofono.VoiceCallManager")
-            call_path = voice_call_manager.DialLast()
-            self.log.info("Dialed number %s on %s, call path: %s", device_address, call_path)
+            call_path = self.voice_call_manager.DialLast()
+            self.log.info("Dialed number, call path: %s", call_path)
             return call_path
         except Exception as error:
             self.log.error("Failed to dial on %s: %s", device_address, error)
@@ -824,6 +821,17 @@ class BluetoothDeviceManager:
             self.log.info(f"Hung up call: {self.active_call_path}")
         except Exception as error:
             self.log.error(f"Failed to hang up: {error}")
+
+    def get_calls(self, device_address):
+        path = self.get_ofono_modem_path(device_address)
+        if not path:
+            self.log.warning("No oFono modem path for %s", device_address)
+            return False
+        try:
+            call_path = self.voice_call_manager.GetCalls()
+            return call_path
+        except Exception as error:
+            return False
 
     def on_call_added(self, call_path, properties):
         """Triggered when a new call starts or incoming call detected."""
