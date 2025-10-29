@@ -1,0 +1,217 @@
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QToolButton, QGraphicsDropShadowEffect
+)
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QColor
+
+
+def create_hfp_sections(self, title, inner_layout):
+    """Create collapsible HFP section with smooth animation, styled header, and subtle shadow."""
+    # --- Outer container ---
+    container = QWidget()
+    container_layout = QVBoxLayout(container)
+    container_layout.setContentsMargins(0, 0, 0, 0)
+    container_layout.setSpacing(6)
+
+    # --- Header toggle button ---
+    toggle = QToolButton()
+    toggle.setText(title)
+    toggle.setCheckable(True)
+    toggle.setChecked(False)
+    toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    toggle.setArrowType(Qt.ArrowType.RightArrow)
+    toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    toggle.setStyleSheet("""
+        QToolButton {
+            font-weight: bold;
+            color: #0078D7;
+            background-color: #f2f6fc;
+            border: 1px solid #c8def6;
+            border-radius: 6px;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        QToolButton:hover {
+            background-color: #e8f1fb;
+        }
+        QToolButton:checked {
+            background-color: #dceafc;
+        }
+    """)
+
+    # --- Animated content area (the collapsible section) ---
+    content = QGroupBox()
+    content.setLayout(inner_layout)
+    content.setMaximumHeight(0)
+    content.setVisible(False)
+
+    content.setStyleSheet("""
+        QGroupBox {
+            border: 1px solid #0078D7;
+            border-radius: 6px;
+            margin-top: 5px;
+            background-color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 3px 10px;
+            color: #0078D7;
+            font-weight: bold;
+        }
+    """)
+
+    # --- Drop shadow for subtle depth ---
+    shadow = QGraphicsDropShadowEffect()
+    shadow.setBlurRadius(10)
+    shadow.setColor(QColor(0, 0, 0, 40))  # semi-transparent soft shadow
+    shadow.setOffset(0, 2)
+    content.setGraphicsEffect(shadow)
+
+    # --- Animation setup ---
+    animation = QPropertyAnimation(content, b"maximumHeight")
+    animation.setDuration(250)
+    animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+    def toggle_section(checked):
+        content.setVisible(True)
+        if checked:
+            animation.setStartValue(0)
+            animation.setEndValue(content.sizeHint().height())
+            toggle.setArrowType(Qt.ArrowType.DownArrow)
+        else:
+            animation.setStartValue(content.height())
+            animation.setEndValue(0)
+            toggle.setArrowType(Qt.ArrowType.RightArrow)
+        animation.start()
+
+    toggle.toggled.connect(toggle_section)
+
+    # --- Build layout ---
+    container_layout.addWidget(toggle)
+    container_layout.addWidget(content)
+    return container
+widget.setStyleSheet("""
+    QWidget {
+        background-color: #f9fafc;
+        font-family: 'Segoe UI';
+        font-size: 10pt;
+    }
+""")
+
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QToolButton, QGraphicsDropShadowEffect
+)
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+from PyQt6.QtGui import QColor
+
+
+def create_hfp_sections(self, title, inner_layout):
+    """Create collapsible HFP section with smooth expand/collapse + fade animation."""
+    # --- Outer container ---
+    container = QWidget()
+    container_layout = QVBoxLayout(container)
+    container_layout.setContentsMargins(0, 0, 0, 0)
+    container_layout.setSpacing(6)
+
+    # --- Header toggle button ---
+    toggle = QToolButton()
+    toggle.setText(title)
+    toggle.setCheckable(True)
+    toggle.setChecked(False)
+    toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    toggle.setArrowType(Qt.ArrowType.RightArrow)
+    toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    toggle.setStyleSheet("""
+        QToolButton {
+            font-weight: bold;
+            color: #0078D7;
+            background-color: #f2f6fc;
+            border: 1px solid #c8def6;
+            border-radius: 6px;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        QToolButton:hover {
+            background-color: #e8f1fb;
+        }
+        QToolButton:checked {
+            background-color: #dceafc;
+        }
+    """)
+
+    # --- Collapsible content ---
+    content = QGroupBox()
+    content.setLayout(inner_layout)
+    content.setMaximumHeight(0)
+    content.setWindowOpacity(0.0)
+    content.setVisible(False)
+
+    content.setStyleSheet("""
+        QGroupBox {
+            border: 1px solid #0078D7;
+            border-radius: 6px;
+            margin-top: 5px;
+            background-color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 3px 10px;
+            color: #0078D7;
+            font-weight: bold;
+        }
+    """)
+
+    # --- Soft drop shadow for visual depth ---
+    shadow = QGraphicsDropShadowEffect()
+    shadow.setBlurRadius(10)
+    shadow.setColor(QColor(0, 0, 0, 40))
+    shadow.setOffset(0, 2)
+    content.setGraphicsEffect(shadow)
+
+    # --- Height animation ---
+    height_anim = QPropertyAnimation(content, b"maximumHeight")
+    height_anim.setDuration(250)
+    height_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+    # --- Fade (opacity) animation ---
+    fade_anim = QPropertyAnimation(content, b"windowOpacity")
+    fade_anim.setDuration(250)
+    fade_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+    # --- Combine both animations ---
+    animation_group = QParallelAnimationGroup()
+    animation_group.addAnimation(height_anim)
+    animation_group.addAnimation(fade_anim)
+
+    def toggle_section(checked):
+        content.setVisible(True)
+        if checked:
+            height_anim.setStartValue(0)
+            height_anim.setEndValue(content.sizeHint().height())
+            fade_anim.setStartValue(0.0)
+            fade_anim.setEndValue(1.0)
+            toggle.setArrowType(Qt.ArrowType.DownArrow)
+        else:
+            height_anim.setStartValue(content.height())
+            height_anim.setEndValue(0)
+            fade_anim.setStartValue(1.0)
+            fade_anim.setEndValue(0.0)
+            toggle.setArrowType(Qt.ArrowType.RightArrow)
+        animation_group.start()
+
+        # When collapsing finishes, hide the widget completely
+        if not checked:
+            def hide_after():
+                content.setVisible(False)
+            animation_group.finished.connect(hide_after)
+
+    toggle.toggled.connect(toggle_section)
+
+    # --- Build layout ---
+    container_layout.addWidget(toggle)
+    container_layout.addWidget(content)
+    return container
